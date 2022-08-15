@@ -1,0 +1,24 @@
+[tool.poetry]
+name = ""
+version = "0.1.0"
+description = ""
+authors = ["Pavel Mikhalkevich <https://github.com/paul-michelle>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+fastapi = "^0.79.0"
+uvicorn = {extras = ["standard"], version = "^0.18.2"}
+httpx = "^0.23.0"
+pydantic = {extras = ["email"], version = "^1.9.1"}
+python-multipart = "^0.0.5"
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+python-dotenv = "^0.20.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+pylint = "^2.14.5"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
