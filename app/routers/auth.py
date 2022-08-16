@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from pydantic import UUID1
 from fastapi import APIRouter, Depends, HTTPException, Path
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
-from jose import jwt, JWTError
+from jose import jwt, JWTError  # type: ignore
 
 from app.db.mem import db, User
 
@@ -35,7 +35,7 @@ class Token:
     token_type:   str = "bearer"
 
 
-def create_access_token(payload: Dict[str, Any], expires_in: int = ACCESS_TOKEN_EXPIRE_MINUTES) -> Token:
+def create_access_token_string(payload: Dict[str, Any], expires_in: int = ACCESS_TOKEN_EXPIRE_MINUTES) -> str:
     claims = deepcopy(payload)
     claims.update({"exp": datetime.utcnow() + timedelta(minutes=expires_in)})
     return jwt.encode(claims, SECRET_KEY, ALGORITHM)
@@ -77,4 +77,4 @@ async def log_in(form_data: OAuth2PasswordRequestForm = Depends()):
     user = await db.find_user_by_creds(form_data.username, form_data.password)   
     if not user:
         raise HTTPException(401, INVALID_CREDS, {"WWW-Authenticate": "Bearer"})
-    return Token(access_token=create_access_token({"udi": str(user.udi)}))
+    return Token(access_token=create_access_token_string({"udi": str(user.udi)}))

@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     CallableGenerator = Generator[AnyCallable, None, None]
     
     
-VALID_PASS_PATTERN = re.compile(r"^(?=\S{6,20}$)(?=.*?\d)(?=.*?[a-z])(?=.*?[A-Z])(?=.*?[^A-Za-z\s0-9])")
+VALID_PASS_PATTERN = re.compile(r"^(?=\S{6,20}$)(?=.*?\d)(?=.*?[a-z])(?=.*?[A-Z])(?=.*?[^A-Za-z\s0-9])")  # NOSONAR
 PASS_FMT           = "6-20 chars, incl. a lower, an upper, and a special char."
 USERNAME_FMT       = "Alphanumeric string expected."
 PASS_MISMATCH      = "Passwords should match."
@@ -59,16 +59,16 @@ class UserInfoBase(BaseModel):
     
 
 class UserInfoIn(UserInfoBase):
-    admin:             Optional[bool]
-    password:          PassStr
-    passwordConfirmed: str
+    admin:     Optional[bool]
+    password:  PassStr
+    password2: str
         
-    @validator("passwordConfirmed")
-    def pass_match(cls, passwordConfirmed, values):
+    @validator("password2")
+    def pass_match(cls, password2, values):
         password = values.get("password")
-        if password and passwordConfirmed != password:
+        if password and password2 != password:
             raise ValueError(PASS_MISMATCH)
-        return passwordConfirmed
+        return password2
 
 
 class UserInfoOut(UserInfoBase):
@@ -118,7 +118,7 @@ async def list_users():
     return await db.list_users()
 
 
-@detailed_oper.get(path="/{udi}", response_model=Optional[UserInfoOut])
+@detailed_oper.get(path="/{udi}", response_model=UserInfoOut)
 async def get_user(udi: UUID1):
     u = await db.find_user_by_udi(udi)
     if not u:

@@ -59,7 +59,6 @@ disable=
     C0303, # trailing-whitespace
     C0114, # missing-module-docstring
     C0115, # missing-class-docstring
-    C0103, # Class constant name "%s" doesn't conform to UPPER_CASE naming style ('([^\\W\\da-z][^\\Wa-z]*|__.*__)$' pattern) (invalid-name)
     E0213, # Method should have "self" as first argument (no-self-argument)
     E0611, # no-name-in-module; e.g: No name 'UUID1' in module 'pydantic'
 

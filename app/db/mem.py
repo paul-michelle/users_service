@@ -2,14 +2,14 @@ from uuid import uuid1
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, UUID1, validator
+from pydantic import BaseModel, UUID1, validator
 
 from app.db.utils import password_manager
 
 
 class User(BaseModel):
     username:   str
-    email:      EmailStr
+    email:      str
     password:   str
     active:     bool               = True
     admin:      bool               = False
@@ -47,7 +47,7 @@ class Database:
     
     async def add_user(self, username: str, email: str, password: str, admin: Optional[bool]) -> Optional[User]:
         if not self._email_and_name_unique(email, username):
-            return   
+            return None   
         user_created = User(username=username, email=email, password=password)
         
         if isinstance(admin, bool):
@@ -59,7 +59,7 @@ class Database:
     async def list_users(self) -> List[Optional[User]]:
         return list(self._users.values())
     
-    async def find_user_by_udi(self, udi: str) -> Optional[User]:
+    async def find_user_by_udi(self, udi: UUID1) -> Optional[User]:
         return self._users.get(udi)
 
     async def find_user_by_creds(self, name: str, plain_pass: str) -> Optional[User]:
@@ -67,18 +67,20 @@ class Database:
             if user.username == name and user.check_password(plain_pass):
                 return user
             
+        return None
+            
     async def upd_user(self, u: User, upd_data: Dict[str, str]) -> bool:       
-        new_username, new_email = upd_data.get("username"), upd_data.get("email")
+        new_username, new_email = upd_data["username"], upd_data["email"]
         if not self._email_and_name_unique(new_email, new_username):
             return False
             
         u.username = new_username
         u.email = new_email
         u.updated_at = datetime.now()
-        u.set_password(upd_data.get("password"))
+        u.set_password(upd_data["password"])
         return True
     
-    async def del_user(self, udi: str) -> bool:
+    async def del_user(self, udi: UUID1) -> bool:
         u = await self.find_user_by_udi(udi)
         if not u:
             return False

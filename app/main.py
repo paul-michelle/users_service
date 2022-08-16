@@ -5,13 +5,6 @@ from fastapi.exception_handlers import http_exception_handler
 
 from app.routers import auth, users, files
 
-logging.basicConfig(
-    filename='logs.txt',
-    filemode='a',
-    format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
-    datefmt='%H:%M:%S',
-    level=logging.ERROR
-)
 logger = logging.getLogger(name=__name__)
 
 app = FastAPI()
