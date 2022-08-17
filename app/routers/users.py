@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import List, Optional, Dict, Any, TYPE_CHECKING
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, EmailStr, validator, UUID1
+from pydantic import BaseModel, EmailStr, validator, UUID4
 
 from app.db.mem import db
 from app.routers.auth import (
@@ -21,12 +21,13 @@ if TYPE_CHECKING:
     CallableGenerator = Generator[AnyCallable, None, None]
     
     
-VALID_PASS_PATTERN = re.compile(r"^(?=\S{6,20}$)(?=.*?\d)(?=.*?[a-z])(?=.*?[A-Z])(?=.*?[^A-Za-z\s0-9])")  # NOSONAR
-PASS_FMT           = "6-20 chars, incl. a lower, an upper, and a special char."
-USERNAME_FMT       = "Alphanumeric string expected."
-PASS_MISMATCH      = "Passwords should match."
-CONFICT            = "User with provided username or email already exists."
-NOT_FOUND          = "User not found."
+PASS_PATTERN  = re.compile(r"^(?=\S{6,20}$)(?=.*?\d)(?=.*?[a-z])(?=.*?[A-Z])(?=.*?[^A-Za-z\s0-9])")  # NOSONAR
+NAME_PATTERN  = re.compile(r"^[a-z\d.]{6,20}$", flags=re.I)
+PASS_FMT      = "6-20 chars, incl. a lower, an upper, and a special char."
+USERNAME_FMT  = "6-20 chars: alphanumeric and dots."
+PASS_MISMATCH = "Passwords should match."
+CONFICT       = "User with provided username or email already exists."
+NOT_FOUND     = "User not found."
 
 
 ### VALIDATORS ###
@@ -42,20 +43,31 @@ class PassStr(str):
 
     @classmethod
     def validate(cls, value: str) -> str:
-        if not VALID_PASS_PATTERN.match(value):
+        if not PASS_PATTERN.match(value):
             raise ValueError(PASS_FMT)
         return value
 
 
-class UserInfoBase(BaseModel):
-    username: str
-    email:    EmailStr
+class NameStr(str):
     
-    @validator("username")
-    def is_valid_name(cls, username):
-        if not username.isalnum():
+    @classmethod
+    def __modify_schema__(cls, field_schema: Dict[str, Any]) -> None:
+        field_schema.update(type='string', format=USERNAME_FMT)
+
+    @classmethod
+    def __get_validators__(cls) -> 'CallableGenerator':
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, value: str) -> str:
+        if not NAME_PATTERN.match(value):
             raise ValueError(USERNAME_FMT)
-        return username
+        return value
+    
+    
+class UserInfoBase(BaseModel):
+    username: NameStr
+    email:    EmailStr
     
 
 class UserInfoIn(UserInfoBase):
@@ -72,7 +84,7 @@ class UserInfoIn(UserInfoBase):
 
 
 class UserInfoOut(UserInfoBase):
-    udi:        UUID1
+    udi:        UUID4
     created_at: datetime
     updated_at: datetime
     admin:      bool
@@ -119,7 +131,7 @@ async def list_users():
 
 
 @detailed_oper.get(path="/{udi}", response_model=UserInfoOut)
-async def get_user(udi: UUID1):
+async def get_user(udi: UUID4):
     u = await db.find_user_by_udi(udi)
     if not u:
         raise HTTPException(404, NOT_FOUND)
@@ -127,7 +139,7 @@ async def get_user(udi: UUID1):
     
 
 @detailed_oper.put(path="/{udi}", status_code=204, responses={409: {"description": CONFICT}})
-async def update_user(udi: UUID1, upd_info: UserInfoIn):
+async def update_user(udi: UUID4, upd_info: UserInfoIn):
     user_to_upd = await db.find_user_by_udi(udi)
     if not user_to_upd:
         raise HTTPException(404, NOT_FOUND)
@@ -137,7 +149,7 @@ async def update_user(udi: UUID1, upd_info: UserInfoIn):
 
 
 @detailed_oper.delete(path="/{udi}", status_code=204)
-async def delete_user(udi: UUID1):
+async def delete_user(udi: UUID4):
     ok = await db.del_user(udi)
     if not ok:
         raise HTTPException(404, NOT_FOUND)

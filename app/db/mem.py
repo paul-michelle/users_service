@@ -1,8 +1,9 @@
-from uuid import uuid1
+import sys
+from uuid import uuid4
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
-from pydantic import BaseModel, UUID1, validator
+from pydantic import BaseModel, UUID4, validator
 
 from app.db.utils import password_manager
 
@@ -13,13 +14,13 @@ class User(BaseModel):
     password:   str
     active:     bool               = True
     admin:      bool               = False
-    udi:        Optional[UUID1]    = None
+    udi:        Optional[UUID4]    = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     
     @validator("udi", always=True)
-    def generate_udi_if_null(cls, udi: Optional[UUID1]) -> UUID1:
-        return udi if udi else uuid1()
+    def generate_udi_if_null(cls, udi: Optional[UUID4]) -> UUID4:
+        return udi if udi else uuid4()
     
     @validator("created_at", always=True)
     def set_created_at_default(cls, created_at: Optional[datetime]) -> datetime:
@@ -45,6 +46,9 @@ class Database:
     def __init__(self):
         self._users = {}
     
+    def flush(self):
+        self._users.clear()      
+        
     async def add_user(self, username: str, email: str, password: str, admin: Optional[bool]) -> Optional[User]:
         if not self._email_and_name_unique(email, username):
             return None   
@@ -59,7 +63,7 @@ class Database:
     async def list_users(self) -> List[Optional[User]]:
         return list(self._users.values())
     
-    async def find_user_by_udi(self, udi: UUID1) -> Optional[User]:
+    async def find_user_by_udi(self, udi: UUID4) -> Optional[User]:
         return self._users.get(udi)
 
     async def find_user_by_creds(self, name: str, plain_pass: str) -> Optional[User]:
@@ -80,7 +84,7 @@ class Database:
         u.set_password(upd_data["password"])
         return True
     
-    async def del_user(self, udi: UUID1) -> bool:
+    async def del_user(self, udi: UUID4) -> bool:
         u = await self.find_user_by_udi(udi)
         if not u:
             return False
@@ -95,4 +99,16 @@ class Database:
         return True
 
 
+class TestDatabase(Database):
+    
+    def add_user_obj(self, u: User) -> None:
+        self._users[u.udi] = u
+    
+    def fetch_user(self, udi: UUID4) -> Optional[User]:
+        return self._users.get(udi)
+    
 db = Database()
+
+if "pytest" in sys.modules:
+    db = TestDatabase()
+    

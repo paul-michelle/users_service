@@ -9,3 +9,4 @@ __pycache__/
 logfile.log
 .scannerwork
 .mypy_cache
+*coverage*

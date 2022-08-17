@@ -1,17 +1,18 @@
-### Lint | Type-check | Test Locally
+### Lint & Test Locally
 To run a pep8 static analysis hit:
 ```
 make lint
 ```
-To statically check the types :
+To statically check the types:
 ```
 make type
 ```
-To statically discover any other possible issues and code smells run an instance of [SonarQube](https://docs.sonarqube.org/latest/setup/get-started-2-minutes/), a code quality inspection tool:
+To run a test suite:
 ```
-docker run -d --name sonarqube -e SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true -p 9000:9000 sonarqube:latest
+make test
 ```
-From the projects root, scan the source with [SonarScanner](https://docs.sonarqube.org/latest/analysis/scan/sonarscanner/):
+To discover any other possible issues, code smells, and code not covered by tests, run an instance of [SonarQube](https://docs.sonarqube.org/latest/setup/get-started-2-minutes/) with `make sonarqube`. At http://127.0.0.1:9000 (login: admin; password: admin)i n a browser create a new project choosing the option 'manually'. Paste the projectKey (which is, by default, also projectName) to the `sonar-project.properties` and the auto-generated sonar login token into the `.env` file - both in the project's root. 
+To run the analysis with [SonarScanner](https://docs.sonarqube.org/latest/analysis/scan/sonarscanner/) fire:
 ```
-sonar-scanner -D sonar.python.version=3 -D sonar.login=<secretKey> -D sonar.projectKey=<projectName>
+make scan
 ```

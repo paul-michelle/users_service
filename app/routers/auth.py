@@ -6,7 +6,7 @@ from typing import Dict, Any
 from copy import deepcopy
 
 from dotenv import load_dotenv
-from pydantic import UUID1
+from pydantic import UUID4
 from fastapi import APIRouter, Depends, HTTPException, Path
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from jose import jwt, JWTError  # type: ignore
@@ -61,7 +61,7 @@ async def get_active_user_or_400(user: User = Depends(get_user_or_401)):
     return user
 
 
-async def has_perms_or_403(udi: UUID1 = Path(), user: User = Depends(get_active_user_or_400)):
+async def has_perms_or_403(udi: UUID4 = Path(), user: User = Depends(get_active_user_or_400)):
     is_object_owner_or_admin = user.udi == udi or user.admin
     if not is_object_owner_or_admin:
         raise HTTPException(403, NO_PERMISSIONS)
