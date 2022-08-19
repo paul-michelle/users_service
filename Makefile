@@ -1,4 +1,4 @@
-.PHONY: lint type test sonarqube sonarscan
+.PHONY: lint type test sonarqube sonarscan check build
 
 lint:
 	poetry run pylint --rcfile .pylintrc app tests
@@ -16,10 +16,17 @@ sonarqube:
 	-p 127.0.0.1:9000:9000 \
 	sonarqube:latest
 
-sonarscan:
+scan:
 	docker run --rm \
 	--network=sonar \
 	-e SONAR_HOST_URL=http://sonarqube:9000 \
 	--env-file=./.env \
 	-v "${PWD}:/usr/src" \
 	sonarsource/sonar-scanner-cli
+
+check: lint type test scan
+
+build:
+	poetry export -f requirements.txt --output requirements.txt --without-hashes && \
+	docker build -t fastpro .
+

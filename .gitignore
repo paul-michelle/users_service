@@ -10,3 +10,4 @@ logfile.log
 .scannerwork
 .mypy_cache
 *coverage*
+requirements.txt
