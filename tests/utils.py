@@ -18,12 +18,13 @@ class Resp:
         return
 
 
-def fake_user() -> Tuple[User ,str]:
+def fake_user(admin: bool = False) -> Tuple[User ,str]:
     timestamp = datetime.utcnow().timestamp()
     name = f"Rob{timestamp}"
     email = f"rob{timestamp}@gmail.com"
     pwd = f"!Pass{timestamp}"
-    u = User(username=name, email=email,password=pwd)
+    u = User(username=name, email=email, 
+             password=pwd, admin=admin)
     db.add_user_obj(u)  # type: ignore
     return u, pwd
 

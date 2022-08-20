@@ -2,14 +2,16 @@ import re
 from datetime import datetime
 from typing import List, Optional, Dict, Any, TYPE_CHECKING
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel, EmailStr, validator, UUID4
 
 from app.db.mem import db
-from app.routers.auth import (
+from app.dependencies import (
     has_perms_or_403, 
     is_admin_or_403,
+    check_admin_tkn,
     INVALID_TOKEN, 
+    INV_ADMIN_TKN,
     USER_INACTIVE,
     NO_PERMISSIONS
 )
@@ -87,18 +89,17 @@ class UserInfoOut(UserInfoBase):
     udi:        UUID4
     created_at: datetime
     updated_at: datetime
-    admin:      bool
 
 
 ### ROUTERS ###
 router = APIRouter()
 
-non_authed_oper = APIRouter(
+non_jwt_opers = APIRouter(
     prefix="/users",
     tags=["users"]
 )
 
-authed_oper = APIRouter(
+jwt_bound_opers = APIRouter(
     prefix="/users", 
     tags=["users"],
     responses={
@@ -108,7 +109,7 @@ authed_oper = APIRouter(
     }
 )
 
-detailed_oper = APIRouter(
+detailed_opers = APIRouter(
     dependencies=[Depends(has_perms_or_403)],
     responses={
         404: {"description": NOT_FOUND}
@@ -117,20 +118,24 @@ detailed_oper = APIRouter(
 
 
 #### PATH OPERATIONS ###
-@non_authed_oper.post(path="/", status_code=201, responses={409: {"description": CONFICT}}, response_model=UserInfoOut)
-async def add_user(u: UserInfoIn):
+@non_jwt_opers.post(path="/", status_code=201, response_model=UserInfoOut, 
+                    responses={409: {"description": CONFICT}, 401: {"description": INV_ADMIN_TKN}})
+async def add_user(u: UserInfoIn, authorization: Optional[str] = Header(default=None)):
+    if u.admin:
+        await check_admin_tkn(authorization)
+    
     user_created = await db.add_user(u.username, u.email, u.password, u.admin)
     if not user_created:
         raise HTTPException(409, CONFICT)
     return user_created
  
    
-@authed_oper.get(path="/", response_model=List[Optional[UserInfoOut]], dependencies=[Depends(is_admin_or_403)])
+@jwt_bound_opers.get(path="/", response_model=List[Optional[UserInfoOut]], dependencies=[Depends(is_admin_or_403)])
 async def list_users():
     return await db.list_users()
 
 
-@detailed_oper.get(path="/{udi}", response_model=UserInfoOut)
+@detailed_opers.get(path="/{udi}", response_model=UserInfoOut)
 async def get_user(udi: UUID4):
     u = await db.find_user_by_udi(udi)
     if not u:
@@ -138,7 +143,7 @@ async def get_user(udi: UUID4):
     return u
     
 
-@detailed_oper.put(path="/{udi}", status_code=204, responses={409: {"description": CONFICT}})
+@detailed_opers.put(path="/{udi}", status_code=204, responses={409: {"description": CONFICT}})
 async def update_user(udi: UUID4, upd_info: UserInfoIn):
     user_to_upd = await db.find_user_by_udi(udi)
     if not user_to_upd:
@@ -148,13 +153,13 @@ async def update_user(udi: UUID4, upd_info: UserInfoIn):
         raise HTTPException(409, CONFICT)
 
 
-@detailed_oper.delete(path="/{udi}", status_code=204)
+@detailed_opers.delete(path="/{udi}", status_code=204)
 async def delete_user(udi: UUID4):
     ok = await db.del_user(udi)
     if not ok:
         raise HTTPException(404, NOT_FOUND)
 
 
-authed_oper.include_router(detailed_oper)
-router.include_router(authed_oper)
-router.include_router(non_authed_oper)
+jwt_bound_opers.include_router(detailed_opers)
+router.include_router(jwt_bound_opers)
+router.include_router(non_jwt_opers)
