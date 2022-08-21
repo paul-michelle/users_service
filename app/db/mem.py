@@ -101,13 +101,10 @@ class Database:
 
 class TestDatabase(Database):
     
-    def add_user_obj(self, u: User) -> None:
+    async def add_user_obj(self, u: User) -> None:
         self._users[u.udi] = u
     
-    def fetch_user(self, udi: UUID4) -> Optional[User]:
-        return self._users.get(udi)
-    
-    def remove_user(self, udi: UUID4) -> None:
+    async def remove_user(self, udi: UUID4) -> None:
         del self._users[udi]
     
     
