@@ -1,6 +1,5 @@
 import os
 import uuid
-from typing import Optional
 
 from pydantic import UUID4
 from fastapi import Depends, HTTPException, Path
@@ -53,15 +52,7 @@ async def is_admin_or_403(user: User = Depends(get_active_user_or_400)):
         raise HTTPException(403, NO_PERMISSIONS)
     
 
-async def check_admin_tkn(auth_header_value: Optional[str]):
-    exc = HTTPException(401, INV_ADMIN_TKN, {"WWW-Authenticate": "Token"})
-    
-    if not auth_header_value:
-        raise exc
-    
+async def check_admin_tkn(auth_header_value: str):   
     apart = auth_header_value.split(" ")
-    if len(apart) != 2:
-        raise exc
-    
-    if apart[0].capitalize() != 'Token' or apart[1] != ADMIN_KEY:
-        raise exc
+    if len(apart) != 2 or apart[0].capitalize() != 'Token' or apart[1] != ADMIN_KEY:
+        raise HTTPException(401, INV_ADMIN_TKN, {"WWW-Authenticate": "Token"})

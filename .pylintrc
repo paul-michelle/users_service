@@ -56,11 +56,11 @@ confidence=
 # no Warning level messages displayed, use"--disable=all --enable=classes
 # --disable=W"
 disable=
-    C0303, # trailing-whitespace
-    C0114, # missing-module-docstring
-    C0115, # missing-class-docstring
-    E0213, # Method should have "self" as first argument (no-self-argument)
-    E0611, # no-name-in-module; e.g: No name 'UUID1' in module 'pydantic'
+    C0303, # trailing-whitespace;
+    C0114, # missing-module-docstring;
+    C0115, # missing-class-docstring;
+    E0213, # Method should have "self" as first argument (no-self-argument);
+    E0611, # No name '...' in module '...' (no-name-in-module);
 
 [REPORTS]
 

@@ -120,7 +120,7 @@ detailed_opers = APIRouter(
 #### PATH OPERATIONS ###
 @non_jwt_opers.post(path="/", status_code=201, response_model=UserInfoOut, 
                     responses={409: {"description": CONFICT}, 401: {"description": INV_ADMIN_TKN}})
-async def add_user(u: UserInfoIn, authorization: Optional[str] = Header(default=None)):
+async def add_user(u: UserInfoIn, authorization: str = Header(default="")):
     if u.admin:
         await check_admin_tkn(authorization)
     
