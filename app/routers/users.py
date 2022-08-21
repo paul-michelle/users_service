@@ -6,18 +6,17 @@ from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel, EmailStr, validator, UUID4
 
 from app.db.mem import db
+from app.routers.auth import USER_INACTIVE
 from app.dependencies import (
     has_perms_or_403, 
     is_admin_or_403,
     check_admin_tkn,
     INVALID_TOKEN, 
     INV_ADMIN_TKN,
-    USER_INACTIVE,
     NO_PERMISSIONS
 )
 
-
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from typing import Generator
     from pydantic.typing import AnyCallable
     CallableGenerator = Generator[AnyCallable, None, None]
@@ -36,7 +35,7 @@ NOT_FOUND     = "User not found."
 class PassStr(str):
     
     @classmethod
-    def __modify_schema__(cls, field_schema: Dict[str, Any]) -> None:
+    def __modify_schema__(cls, field_schema: Dict[str, Any]) -> None:  # pragma: no cover
         field_schema.update(type='string', format=PASS_FMT)
 
     @classmethod
@@ -53,7 +52,7 @@ class PassStr(str):
 class NameStr(str):
     
     @classmethod
-    def __modify_schema__(cls, field_schema: Dict[str, Any]) -> None:
+    def __modify_schema__(cls, field_schema: Dict[str, Any]) -> None:  # pragma: no cover
         field_schema.update(type='string', format=USERNAME_FMT)
 
     @classmethod

@@ -14,6 +14,7 @@ from app.db.mem import db
 load_dotenv()
 
 INVALID_CREDS  = "Invalid username or password."
+USER_INACTIVE  = "User inactive."
 ALGORITHM      = "HS256"
 SECRET_KEY     = os.environ.get("SECRET_KEY")
 TOKEN_EXP_MINS = 30
@@ -34,9 +35,12 @@ def create_access_token_string(payload: Dict[str, Any], expires_in: int = TOKEN_
     return jwt.encode(claims, SECRET_KEY, ALGORITHM)
 
 
-@router.post("/token", status_code=201, response_model=Token, responses={400: {"description": INVALID_CREDS}})
+@router.post("/token", status_code=201, response_model=Token, 
+             responses={401: {"description": INVALID_CREDS}, 400: {"description": USER_INACTIVE}})
 async def log_in(form_data: OAuth2PasswordRequestForm = Depends()):
     user = await db.find_user_by_creds(form_data.username, form_data.password)   
     if not user:
         raise HTTPException(401, INVALID_CREDS, {"WWW-Authenticate": "Bearer"})
+    if not user.active:
+        raise HTTPException(400, USER_INACTIVE)
     return Token(access_token=create_access_token_string({"udi": str(user.udi)}))

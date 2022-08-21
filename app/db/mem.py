@@ -107,6 +107,10 @@ class TestDatabase(Database):
     def fetch_user(self, udi: UUID4) -> Optional[User]:
         return self._users.get(udi)
     
+    def remove_user(self, udi: UUID4) -> None:
+        del self._users[udi]
+    
+    
 db = Database()
 
 if "pytest" in sys.modules:

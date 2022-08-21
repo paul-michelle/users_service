@@ -1,6 +1,6 @@
 import pytest
 
-from app.routers.auth import INVALID_CREDS
+from app.routers.auth import INVALID_CREDS, USER_INACTIVE
 
 
 LOGIN_URL = "/token"
@@ -26,8 +26,19 @@ def test_auth_fails_when_no_such_user(client):
     assert r.json()["detail"] == INVALID_CREDS
 
 
+def test_auth_fails_when_user_not_active(client, fake_user):
+    usr, usr_pass = fake_user()
+    
+    usr.active = False
+    
+    r = client.post(LOGIN_URL, data={"username":usr.username, "password": usr_pass})
+    assert r.status_code == 400
+    assert r.json()["detail"] == USER_INACTIVE
+
+
 def test_jwt_returned_when_creds_ok(client, fake_user):
     usr, usr_pass = fake_user()
+    
     r = client.post(LOGIN_URL, data={"username":usr.username, "password": usr_pass})
     assert r.status_code == 201
     assert isinstance(r.json()["access_token"], str)

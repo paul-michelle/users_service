@@ -2,7 +2,8 @@ from uuid import UUID
 
 import pytest
 from app.db.mem import db
-from app.dependencies import ADMIN_KEY, INV_ADMIN_TKN, NO_PERMISSIONS
+from app.dependencies import ADMIN_KEY, INV_ADMIN_TKN, NO_PERMISSIONS, INVALID_TOKEN
+from app.routers.auth import USER_INACTIVE
 from tests.conftest import jwt_auth_headers, admin_key_auth_headers
 
 
@@ -14,7 +15,7 @@ VALIDATION_ERROR_MSGs     = {"6-20 chars: alphanumeric and dots.", "value is not
 BEARER_NOT_PROVIDED       = "Not authenticated"
 
 
-### REGISTERING COMMON USER ###
+### REGISTER COMMON USER ###
 def test_usr_registration_fails_if_payload_invalid(client):
     invalid_reg_details = {
         "username": "~Rob~",
@@ -28,11 +29,11 @@ def test_usr_registration_fails_if_payload_invalid(client):
         
 
 def test_strong_pass_expected(client, reg_data):
-    reg_data["password"] = "weakpass"
+    reg_data["password"]  = "weakpass"
     reg_data["password2"] = "weakpass"
     assert client.post(USERS_URL, json=reg_data).status_code == 422
 
-    reg_data["password"] = "1notThatweakpass!"
+    reg_data["password"]  = "1notThatweakpass!"
     reg_data["password2"] = "1notThatweakpass!"
     assert client.post(USERS_URL, json=reg_data).status_code == 201
 
@@ -67,7 +68,7 @@ def test_user_created_and_ok_and_pass_not_sent_back(client, reg_data):
     assert not u.admin
 
 
-### REGISTERING ADMIN USER ###
+### REGISTER ADMIN USER ###
 def test_admin_usr_reg_fails_if_no_or_invalid_key(client, reg_data):
     reg_data.update({"admin": True})
 
@@ -121,8 +122,42 @@ def test_jwt_required_for_usr_opers_but_create(client, reg_data):
     del_one = client.delete(f"{USERS_URL}{udi}")
     assert del_one.json()["detail"] == BEARER_NOT_PROVIDED
     
+
+def test_invalid_tkn_jwt_errors_back(client, fake_user):
+    usr, usr_pass = fake_user()
+
+    login = client.post(LOGIN_URL, data={"username":usr.username, "password": usr_pass})
+    jwt_tkn_string = login.json()["access_token"]
+    r = client.get(f"{USERS_URL}{usr.udi}", headers={"Authorization": f"Bearer {jwt_tkn_string[::-1]}"})
+    assert r.status_code == 401
+    assert r.json()["detail"] == INVALID_TOKEN
+
+
+def test_user_no_longer_exists_errors_back(client, fake_user):
+    usr, usr_pass = fake_user()
     
-### GETTING ONE USER ###
+    login = client.post(LOGIN_URL, data={"username":usr.username, "password": usr_pass})
+    
+    db.remove_user(usr.udi)
+    
+    r = client.get(f"{USERS_URL}{usr.udi}", headers=jwt_auth_headers(login.json()["access_token"]))
+    assert r.status_code == 401
+    assert r.json()["detail"] == INVALID_TOKEN
+    
+
+def test_user_not_active_errors_back(client, fake_user):
+    usr, usr_pass = fake_user()
+    
+    login = client.post(LOGIN_URL, data={"username":usr.username, "password": usr_pass})
+    
+    usr.active = False
+    
+    r = client.get(f"{USERS_URL}{usr.udi}", headers=jwt_auth_headers(login.json()["access_token"]))
+    assert r.status_code == 400
+    assert r.json()["detail"] == USER_INACTIVE
+    
+    
+### GET ONE USER ###
 def test_authed_usr_can_get_only_own_details(client, fake_user):
     usr1, usr1pass = fake_user()
     usr2, usr2pass = fake_user()
@@ -140,7 +175,7 @@ def test_authed_usr_can_get_only_own_details(client, fake_user):
 
 def test_admin_can_get_everyones_details(client, fake_user):
     admin_usr, admin_pass   = fake_user(admin=True)
-    common_usr1, _           = fake_user()
+    common_usr1, _          = fake_user()
     commin_usr2, _          = fake_user()
     
     login = client.post(LOGIN_URL, data={"username":admin_usr.username, "password": admin_pass})
@@ -150,10 +185,22 @@ def test_admin_can_get_everyones_details(client, fake_user):
     assert client.get(f"{USERS_URL}{admin_usr.udi}", headers=headers).status_code == 200
 
 
-### LISTING ALL USERS ###
+def test_user_not_found(client, fake_user):
+    admin_usr, admin_pass = fake_user(admin=True)
+    common_usr1, _        = fake_user()
+    
+    login = client.post(LOGIN_URL, data={"username":admin_usr.username, "password": admin_pass})
+    headers = jwt_auth_headers(login.json()["access_token"])
+    
+    db.remove_user(common_usr1.udi)
+    
+    assert client.get(f"{USERS_URL}{common_usr1.udi}", headers=headers).status_code == 404
+
+
+### LIST ALL USERS ###
 def test_only_admin_can_list_all_users(client, fake_user):
     admin_usr, admin_pass = fake_user(admin=True)
-    usr, usr_pass = fake_user()
+    usr, usr_pass         = fake_user()
 
     admin_login =client.post(LOGIN_URL, data={"username":admin_usr.username, "password": admin_pass})
     headers = jwt_auth_headers(admin_login.json()["access_token"])
@@ -167,4 +214,8 @@ def test_only_admin_can_list_all_users(client, fake_user):
     resp_to_common_usr= client.get(USERS_URL, headers=headers)
     assert resp_to_common_usr.status_code == 403
     assert resp_to_common_usr.json()["detail"] == NO_PERMISSIONS
-            
+
+
+### UPDATE USER ###
+
+### DELETE USER ###

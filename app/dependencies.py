@@ -8,11 +8,10 @@ from jose import jwt, JWTError  # type: ignore
 from dotenv import load_dotenv
 
 from app.db.mem import db, User
-from app.routers.auth import SECRET_KEY, ALGORITHM
+from app.routers.auth import SECRET_KEY, ALGORITHM, USER_INACTIVE
 
 load_dotenv()
 
-USER_INACTIVE  = "User inactive."
 NO_PERMISSIONS = "Not authorized to perform this operation."
 INVALID_TOKEN  = "Could not validate credentials."
 INV_ADMIN_TKN  = "Could not validate admin credentials."
