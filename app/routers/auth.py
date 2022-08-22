@@ -1,22 +1,19 @@
-import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Dict, Any
 from copy import deepcopy
 
-from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt  # type: ignore
 
+from app.config import settings
 from app.db.mem import db
 
-load_dotenv()
 
 INVALID_CREDS  = "Invalid username or password."
 USER_INACTIVE  = "User inactive."
 ALGORITHM      = "HS256"
-SECRET_KEY     = os.environ.get("SECRET_KEY")
 TOKEN_EXP_MINS = 30
 
 
@@ -32,7 +29,7 @@ class Token:
 def create_access_token_string(payload: Dict[str, Any], expires_in: int = TOKEN_EXP_MINS) -> str:
     claims = deepcopy(payload)
     claims.update({"exp": datetime.utcnow() + timedelta(minutes=expires_in)})
-    return jwt.encode(claims, SECRET_KEY, ALGORITHM)
+    return jwt.encode(claims, settings.secret_key, ALGORITHM)
 
 
 @router.post("/token", status_code=201, response_model=Token, 

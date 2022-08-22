@@ -1,8 +1,10 @@
 from uuid import UUID
 
 import pytest
+
+from app.config import settings
 from app.db.mem import db
-from app.dependencies import ADMIN_KEY, INV_ADMIN_TKN, NO_PERMISSIONS, INVALID_TOKEN
+from app.dependencies import INV_ADMIN_TKN, NO_PERMISSIONS, INVALID_TOKEN
 from app.routers.auth import USER_INACTIVE
 from tests.conftest import jwt_auth_headers, admin_key_auth_headers
 
@@ -86,11 +88,11 @@ async def test_admin_usr_reg_fails_if_no_or_invalid_key(client, reg_data):
         r = await client.post(USERS_URL, json=reg_data, headers=empty_auth_headers)
         assert r.json()["detail"] == INV_ADMIN_TKN
     
-        wrong_tkn_type_auth_headers = {"Authorization": f"Bearer {ADMIN_KEY}"}
+        wrong_tkn_type_auth_headers = {"Authorization": f"Bearer {settings.admin_key}"}
         r = await client.post(USERS_URL, json=reg_data, headers=wrong_tkn_type_auth_headers)
         assert r.json()["detail"] == INV_ADMIN_TKN
 
-        invalid_tkn = {"Authorization": f"Token {ADMIN_KEY[1:]}"}
+        invalid_tkn = {"Authorization": f"Token {settings.admin_key[1:]}"}
         r = await client.post(USERS_URL, json=reg_data, headers=invalid_tkn)
         assert r.json()["detail"] == INV_ADMIN_TKN
 
@@ -98,7 +100,7 @@ async def test_admin_usr_reg_fails_if_no_or_invalid_key(client, reg_data):
 async def test_admin_usr_created_ok_if_valid_key(client, reg_data):
     reg_data.update({"admin": True})
     async with client:
-        r = await client.post(USERS_URL, json=reg_data, headers=admin_key_auth_headers(ADMIN_KEY))
+        r = await client.post(USERS_URL, json=reg_data, headers=admin_key_auth_headers(settings.admin_key))
     assert r.status_code == 201
         
     u = await db.find_user_by_udi(UUID(r.json()["udi"]))

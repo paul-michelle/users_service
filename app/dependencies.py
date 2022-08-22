@@ -1,28 +1,25 @@
-import os
 import uuid
 
 from pydantic import UUID4
 from fastapi import Depends, HTTPException, Path
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError  # type: ignore
-from dotenv import load_dotenv
 
+from app.config import settings
 from app.db.mem import db, User
-from app.routers.auth import SECRET_KEY, ALGORITHM, USER_INACTIVE
+from app.routers.auth import ALGORITHM, USER_INACTIVE
 
-load_dotenv()
 
 NO_PERMISSIONS = "Not authorized to perform this operation."
 INVALID_TOKEN  = "Could not validate credentials."
 INV_ADMIN_TKN  = "Could not validate admin credentials."
-ADMIN_KEY      = os.environ.get("ADMIN_KEY")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='token')
 
 
 async def get_user_or_401(token: str = Depends(oauth2_scheme)) -> User:
     try:
-        claims = jwt.decode(token, SECRET_KEY, [ALGORITHM])
+        claims = jwt.decode(token, settings.secret_key, [ALGORITHM])
         udi_string = claims["udi"]
         udi = uuid.UUID(udi_string)
     except (JWTError, KeyError, ValueError) as exc:
@@ -53,5 +50,5 @@ async def is_admin_or_403(user: User = Depends(get_active_user_or_400)):
 
 async def check_admin_tkn(auth_header_value: str):   
     apart = auth_header_value.split(" ")
-    if len(apart) != 2 or apart[0].capitalize() != 'Token' or apart[1] != ADMIN_KEY:
+    if len(apart) != 2 or apart[0].capitalize() != 'Token' or apart[1] != settings.admin_key:
         raise HTTPException(401, INV_ADMIN_TKN, {"WWW-Authenticate": "Token"})
