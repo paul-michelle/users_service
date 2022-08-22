@@ -22,7 +22,7 @@ services:
         - .env
 
   pg_admin:
-    image: dpage/pgadmin4:6.0
+    image: dpage/pgadmin4:6.12
     env_file:
       - .env
     ports:
