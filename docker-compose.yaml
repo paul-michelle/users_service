@@ -1,0 +1,32 @@
+version: "3"
+
+services:
+
+  web:
+    build: .
+    depends_on:
+      - db
+    ports:
+      - "127.0.0.1:8082:80"
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+
+  db:
+    image: postgres:13-alpine
+    restart: always
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    env_file:
+        - .env
+
+  pg_admin:
+    image: dpage/pgadmin4:6.0
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:8081:80"
+
+volumes: 
+  pgdata:

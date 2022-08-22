@@ -1,4 +1,4 @@
-.PHONY: lint type test sonarqube sonarscan check build
+.PHONY: lint type test sonarqube sonarscan check build up
 
 lint:
 	poetry run pylint --rcfile .pylintrc app tests
@@ -30,3 +30,6 @@ build:
 	poetry export -f requirements.txt --output requirements.txt --without-hashes && \
 	docker build -t fastpro .
 
+up:
+	poetry export -f requirements.txt --output requirements.txt --without-hashes && \
+	docker-compose up --build

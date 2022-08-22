@@ -9,5 +9,6 @@ __pycache__/
 logfile.log
 .scannerwork
 .mypy_cache
+.pytest_cache
 *coverage*
 requirements.txt

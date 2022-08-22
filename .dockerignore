@@ -1,0 +1,28 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# git
+.git
+.gitignore
+
+# Outputs
+logfile.log
+.scannerwork
+.mypy_cache
+*coverage*
+.pytest_cache
+
+# Dev
+.pylintrc
+mypy.ini
+pytest.ini
+sonar-project.properties
+tests
+poetry.lock
+pyproject.toml
+docker-compose.yaml
+Dockerfile
+Makefile
+README.md
+
