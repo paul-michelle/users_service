@@ -1,17 +1,28 @@
-from logging.config import fileConfig as logConfigFromFile
+from logging.config import fileConfig as get_log_config_from_file
 
+from sqlalchemy.engine.url import URL
 from sqlalchemy import engine_from_config, pool
-from sqlalchemy.sql.schema import MetaData
 from alembic import context
 
-from app.config import settings as s
+from app.config import settings
 from app.db.database import BaseModel
 
-logConfigFromFile(context.config.config_file_name)
 
-url = f"postgresql://{s.postgres_user}:{s.postgres_password}@{s.postgres_host}:{s.postgres_port}/{s.postgres_database}"
-target_metadata: MetaData = BaseModel.metadata
+get_log_config_from_file(context.config.config_file_name)
 
+url = URL(
+    drivername="postgresql+psycopg2",
+    username=settings.postgres_user,
+    password=settings.postgres_password,
+    host=settings.postgres_host,
+    port=settings.postgres_port,
+    database=settings.postgres_database
+)
+target_metadata  = BaseModel.metadata
+sa_configuration =  {
+    "sqlalchemy.url": url,
+    "sqlalchemy.poolclass": pool.NullPool
+}
 
 def dry_run() -> None:
     context.configure(
@@ -26,15 +37,11 @@ def dry_run() -> None:
 
 
 def migrate() -> None:
-    connectable = engine_from_config(
-        {"sqlalchemy.url": url},
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
-
-    with connectable.connect() as connection:
+    connectable = engine_from_config(sa_configuration)
+    
+    with connectable.connect() as conn:
         context.configure(
-            connection=connection, 
+            connection=conn, 
             target_metadata=target_metadata
         )
 
