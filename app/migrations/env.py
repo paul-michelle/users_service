@@ -1,32 +1,30 @@
-from logging.config import fileConfig as get_log_config_from_file
+from logging.config import fileConfig as log_config_from_file
 
-from sqlalchemy.engine.url import URL
-from sqlalchemy import engine_from_config, pool
 from alembic import context
+from sqlalchemy import engine_from_config, pool
+from sqlalchemy_utils import create_database, database_exists
 
-from app.config import settings
-from app.db.database import BaseModel
+from app.config import conn_string
+from app.db.meta import BaseModel
 
+ini = context.config.config_file_name
+if ini:
+   log_config_from_file(ini)
 
-get_log_config_from_file(context.config.config_file_name)
-
-url = URL(
-    drivername="postgresql+psycopg2",
-    username=settings.postgres_user,
-    password=settings.postgres_password,
-    host=settings.postgres_host,
-    port=settings.postgres_port,
-    database=settings.postgres_database
-)
 target_metadata  = BaseModel.metadata
 sa_configuration =  {
-    "sqlalchemy.url": url,
+    "sqlalchemy.url": conn_string,
     "sqlalchemy.poolclass": pool.NullPool
 }
 
+
+if not database_exists(conn_string):
+    create_database(conn_string)
+    
+    
 def dry_run() -> None:
     context.configure(
-        url=url,
+        url=conn_string,
         target_metadata=target_metadata,
         literal_binds=True,
         compare_server_default=True,
@@ -38,7 +36,7 @@ def dry_run() -> None:
 
 def migrate() -> None:
     connectable = engine_from_config(sa_configuration)
-    
+
     with connectable.connect() as conn:
         context.configure(
             connection=conn, 

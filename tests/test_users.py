@@ -4,10 +4,9 @@ import pytest
 
 from app.config import settings
 from app.db.mem import db
-from app.dependencies import INV_ADMIN_TKN, NO_PERMISSIONS, INVALID_TOKEN
+from app.dependencies import INV_ADMIN_TKN, INVALID_TOKEN, NO_PERMISSIONS
 from app.routers.auth import USER_INACTIVE
-from tests.conftest import jwt_auth_headers, admin_key_auth_headers
-
+from tests.conftest import admin_key_auth_headers, jwt_auth_headers
 
 USERS_URL                 = "/users/"
 LOGIN_URL                 = "/token"

@@ -1,5 +1,6 @@
 from typing import List
-from fastapi import UploadFile, APIRouter, Form
+
+from fastapi import APIRouter, Form, UploadFile
 from fastapi.responses import HTMLResponse
 
 router = APIRouter(prefix='/files', tags=["files"])

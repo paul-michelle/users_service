@@ -1,11 +1,11 @@
-from typing import Callable, Generator, Tuple, Dict, Coroutine, Any
 from datetime import datetime
+from typing import Any, Callable, Coroutine, Dict, Generator, Tuple
 
 import pytest
 from httpx import AsyncClient
 
+from app.db.mem import User, db
 from app.main import app
-from app.db.mem import db, User
 
 
 ### FIXTURES ###

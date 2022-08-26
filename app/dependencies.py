@@ -1,14 +1,17 @@
-import uuid
+from uuid import UUID
+from typing import Generator
 
-from pydantic import UUID4
 from fastapi import Depends, HTTPException, Path
 from fastapi.security import OAuth2PasswordBearer
-from jose import jwt, JWTError  # type: ignore
+from jose import JWTError, jwt  # type: ignore
+from pydantic import UUID4
+from sqlalchemy.orm import Session
 
+from app.crud.users import user
+from app.models.users import User
 from app.config import settings
-from app.db.mem import db, User
+from app.db.session import Session
 from app.routers.auth import ALGORITHM, USER_INACTIVE
-
 
 NO_PERMISSIONS = "Not authorized to perform this operation."
 INVALID_TOKEN  = "Could not validate credentials."
@@ -17,34 +20,42 @@ INV_ADMIN_TKN  = "Could not validate admin credentials."
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='token')
 
 
-async def get_user_or_401(token: str = Depends(oauth2_scheme)) -> User:
+def get_db() -> Generator[Session, None, None]:
+    try:
+        s = Session()
+        yield s
+    finally:
+        s.close()
+        
+    
+async def get_user_or_401(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
     try:
         claims = jwt.decode(token, settings.secret_key, [ALGORITHM])
-        udi_string = claims["udi"]
-        udi = uuid.UUID(udi_string)
+        id_string = claims["sub"]
+        _id = UUID(id_string)
     except (JWTError, KeyError, ValueError) as exc:
         raise HTTPException(401, INVALID_TOKEN, {"WWW-Authenticate": "Bearer"}) from exc
     
-    user = await db.find_user_by_udi(udi)
-    if not user:
+    u = user.get(db, _id)
+    if not u:
         raise HTTPException(401, INVALID_TOKEN, {"WWW-Authenticate": "Bearer"})
-    return user
+    return u
     
     
-async def get_active_user_or_400(user: User = Depends(get_user_or_401)):
-    if not user.active:
+async def get_active_user_or_400(u: User = Depends(get_user_or_401)) -> User:
+    if not u.active:
         raise HTTPException(400, USER_INACTIVE)
-    return user
+    return u
 
 
-async def has_perms_or_403(udi: UUID4 = Path(), user: User = Depends(get_active_user_or_400)):
-    is_object_owner_or_admin = user.udi == udi or user.admin
+async def has_perms_or_403(id: UUID4 = Path(), u: User = Depends(get_active_user_or_400)) -> None:
+    is_object_owner_or_admin = u.id == id or user.admin
     if not is_object_owner_or_admin:
         raise HTTPException(403, NO_PERMISSIONS)
 
 
-async def is_admin_or_403(user: User = Depends(get_active_user_or_400)):
-    if not user.admin:
+async def is_admin_or_403(u: User = Depends(get_active_user_or_400)) -> None:
+    if not u.admin:
         raise HTTPException(403, NO_PERMISSIONS)
     
 

@@ -1,15 +1,13 @@
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Dict, Any
-from copy import deepcopy
+from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt  # type: ignore
 
 from app.config import settings
-from app.db.mem import db
-
 
 INVALID_CREDS  = "Invalid username or password."
 USER_INACTIVE  = "User inactive."
@@ -40,4 +38,4 @@ async def log_in(form_data: OAuth2PasswordRequestForm = Depends()):
         raise HTTPException(401, INVALID_CREDS, {"WWW-Authenticate": "Bearer"})
     if not user.active:
         raise HTTPException(400, USER_INACTIVE)
-    return Token(access_token=create_access_token_string({"udi": str(user.udi)}))
+    return Token(access_token=create_access_token_string({"sub": str(user.id)}))

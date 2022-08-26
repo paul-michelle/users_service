@@ -2,7 +2,6 @@ import pytest
 
 from app.routers.auth import INVALID_CREDS, USER_INACTIVE
 
-
 LOGIN_URL = "/token"
 
 

@@ -1,4 +1,7 @@
-.PHONY: lint type test sonarqube sonarscan check build up
+.PHONY: sort lint type test sonarqube scan check build up migrate
+
+sort:
+	isort app tests
 
 lint:
 	poetry run pylint --rcfile .pylintrc app tests
@@ -24,7 +27,7 @@ scan:
 	-v "${PWD}:/usr/src" \
 	sonarsource/sonar-scanner-cli
 
-check: lint type test scan
+check: sort lint type test scan
 
 build:
 	poetry export -f requirements.txt --output requirements.txt --without-hashes && \
@@ -33,3 +36,6 @@ build:
 up:
 	poetry export -f requirements.txt --output requirements.txt --without-hashes && \
 	docker-compose up --build
+
+migrate:
+	alembic --config ./app/migrations/alembic.ini upgrade head

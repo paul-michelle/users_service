@@ -1,14 +1,13 @@
 import logging
-from starlette.exceptions import HTTPException
+
 from fastapi import FastAPI
 from fastapi.exception_handlers import http_exception_handler
-
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from starlette.exceptions import HTTPException
 
-from app.routers import auth, users, files
-
+from app.routers import auth, files, users
 
 logger = logging.getLogger(name=__name__)
 
