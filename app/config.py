@@ -17,11 +17,20 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-conn_string = URL(
+conn_string = URL.create(
     drivername="postgresql+psycopg2",
     username=settings.postgres_user,
     password=settings.postgres_password,
     host=settings.postgres_host,
     port=settings.postgres_port,
     database=settings.postgres_database
-).__str__()
+)
+
+dev_conn_string = URL.create(
+    drivername="postgresql+psycopg2",
+    username=settings.postgres_user,
+    password=settings.postgres_password,
+    host=settings.postgres_host,
+    port=settings.postgres_port,
+    database=f"{settings.postgres_database}_test"
+)

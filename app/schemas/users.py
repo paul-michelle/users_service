@@ -99,6 +99,9 @@ class UserInfoOut(UserInfoBase):
     created_at: datetime
     updated_at: datetime
 
+    class Config:
+        orm_mode = True
+
 
 class UserDB(UserInfoOut): 
     password: str

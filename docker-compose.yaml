@@ -20,6 +20,8 @@ services:
       - pgdata:/var/lib/postgresql/data
     env_file:
         - .env
+    ports:
+      - "127.0.0.1:5433:5432"
 
   pg_admin:
     image: dpage/pgadmin4:6.12

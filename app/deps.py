@@ -1,5 +1,5 @@
-from uuid import UUID
 from typing import Generator
+from uuid import UUID
 
 from fastapi import Depends, HTTPException, Path
 from fastapi.security import OAuth2PasswordBearer
@@ -7,10 +7,10 @@ from jose import JWTError, jwt  # type: ignore
 from pydantic import UUID4
 from sqlalchemy.orm import Session
 
-from app.crud.users import user
-from app.models.users import User
 from app.config import settings
+from app.crud.users import user
 from app.db.session import Session
+from app.models.users import User
 from app.routers.auth import ALGORITHM, USER_INACTIVE
 
 NO_PERMISSIONS = "Not authorized to perform this operation."

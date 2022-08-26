@@ -34,12 +34,20 @@ class UserCRUD:
             usr.set_password(upd_data.password)
         db.add(usr)
         db.commit()
-        
-    def email_uniq(self, db: Session, email: str, _id: UUID4) -> bool:
-        return not db.query(User).filter(User.email == email, User.id != _id).first()
     
-    def name_uniq(self, db: Session, username: str, _id: UUID4) -> bool:
-        return not db.query(User).filter(User.username == username, User.id != _id).first()
+    def name_uniq(self, db: Session, username: str, _id: Optional[UUID4] = None) -> bool:
+        if _id:
+            return not db.query(User).filter(User.username == username, User.id != _id).first()
+        return not db.query(User).filter(User.username == username).first()
+
+    def email_uniq(self, db: Session, email: str, _id: Optional[UUID4] = None) -> bool:
+        if _id:
+            return not db.query(User).filter(User.email == email, User.id != _id).first()
+        return not db.query(User).filter(User.email == email).first()
+    
+    def purge(self, db: Session) -> None:
+        db.query(User).delete()
+        db.commit()
     
     
 user = UserCRUD()
