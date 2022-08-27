@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 
 from pydantic import UUID4
@@ -9,9 +10,11 @@ from app.schemas.users import UserInfoIn
 
 class UserCRUD:
     
-    def get(self, db: Session, id: UUID4) -> Optional[User]:
-        return db.query(User).filter(User.id == id).first()
-    
+    def get(self, db: Session, _id: Optional[UUID4] = None, username: str = "") -> Optional[User]:
+        if _id: 
+            return db.query(User).filter(User.id == _id).first()
+        return db.query(User).filter(User.username == username).first()
+        
     def get_many(self, db: Session, skip: int, limit: int) -> List[Optional[User]]:
         return db.query(User).offset(skip).limit(limit).all()
     
@@ -32,8 +35,13 @@ class UserCRUD:
             usr.username = upd_data.username
         if upd_data.password:
             usr.set_password(upd_data.password)
-        db.add(usr)
-        db.commit()
+        usr.updated_at = datetime.utcnow()
+        db.add(usr); db.commit()
+    
+    def deactivate(self, db: Session, usr: User) -> None:
+        usr.active = False
+        usr.updated_at = datetime.utcnow()
+        db.add(usr); db.commit()
     
     def name_uniq(self, db: Session, username: str, _id: Optional[UUID4] = None) -> bool:
         if _id:

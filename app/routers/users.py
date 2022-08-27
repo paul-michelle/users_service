@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Security
 from pydantic import UUID4
 from sqlalchemy.orm import Session
 
@@ -32,7 +32,7 @@ jwt_bound_opers = APIRouter(
 )
 
 detailed_opers = APIRouter(
-    dependencies=[Depends(deps.has_perms_or_403)],
+    dependencies=[Security(deps.has_perms_or_403, scopes=["users:rw"])],
     responses={
         404: {"description": USER_NOT_FOUND}
     }
@@ -47,7 +47,7 @@ async def add_user(u: UserInfoIn, authorization: str = Header(default=""), db: S
 
     if not user.name_uniq(db, u.username):
         raise HTTPException(409, CONFLICT_NAME)
-
+    
     if not user.email_uniq(db, u.email):
         raise HTTPException(409, CONFLICT_EMAIL)
     

@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Any, Callable, Coroutine, Dict, Generator, Tuple
 
 import pytest
+from fastapi import Response
 from httpx import AsyncClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -12,13 +13,21 @@ from app.crud.users import user
 from app.db.meta import BaseModel
 from app.deps import get_db
 from app.main import app
+from app.models.users import User
+from app.schemas.users import UserInfoIn
 
-dev_engine = create_engine(dev_conn_string, pool_pre_ping=True)
-DevSession = sessionmaker(autoflush=False, bind=dev_engine)
-if not database_exists(dev_conn_string):
-    create_database(dev_conn_string)
-    
-BaseModel.metadata.create_all(bind=dev_engine)
+
+def prepare_dev_db(conn: str) -> Session:
+    if not database_exists(conn):
+        create_database(conn)
+        
+    dev_engine = create_engine(conn, pool_pre_ping=True)
+    BaseModel.metadata.create_all(bind=dev_engine)
+
+    return sessionmaker(autoflush=False, bind=dev_engine)
+
+
+DevSession = prepare_dev_db(dev_conn_string)
 
 
 def get_dev_db() -> Generator[Session, None, None]:
@@ -51,15 +60,14 @@ def reg_data():
 @pytest.fixture(autouse=True)
 def clean_up() -> Generator[None, None, None]:
     yield
-    s = DevSession()
-    user.purge(s)
-    s.close()
+    with DevSession() as s:
+        user.purge(s)
+
 
     
-# @pytest.fixture()
-# def fake_user() -> Generator[Callable[[bool], Coroutine[Any, Any, Tuple[User, str]]], None, None]:
-#     yield create_fake_user
-#     db.flush()
+@pytest.fixture()
+def fake_user() -> Generator[Callable[[bool], Coroutine[Any, Any, Tuple[User, str]]], None, None]:
+    yield create_fake_user
 
 
 @pytest.fixture()
@@ -67,21 +75,30 @@ def client():
     return AsyncClient(app=app, base_url="http://test")
 
 
-# ### UTILS ###
-# def jwt_auth_headers(token: str) -> Dict[str, str]:
-#     return {"Authorization": f"Bearer {token}"}
+def jwt_auth_headers(resp: Response) -> Dict[str, str]:
+    return {'Authorization': f'Bearer {resp.json()["access_token"]}'}
 
 
-# def admin_key_auth_headers(admin_key: str) -> Dict[str, str]:
-#     return {"Authorization": f"Token {admin_key}"}
+def admin_key_auth_headers(admin_key: str) -> Dict[str, str]:
+    return {"Authorization": f"Token {admin_key}"}
 
 
-# async def create_fake_user(admin: bool = False) -> Tuple[User ,str]:
-#     timestamp = datetime.utcnow().timestamp()
-#     name = f"Rob{timestamp}"
-#     email = f"rob{timestamp}@gmail.com"
-#     pwd = f"!Pass{timestamp}"
-#     u = User(username=name, email=email, 
-#              password=pwd, admin=admin)
-#     await db.add_user_obj(u)  # type: ignore
-#     return u, pwd
+def err(resp: Response) -> Any:
+    return resp.json()["detail"]
+
+
+def create_fake_user(admin: bool = False) -> Tuple[User ,str]:
+    timestamp = datetime.utcnow().timestamp()
+    pwd = "!ValidPass2022"
+    reg_details = UserInfoIn(
+        username= f"Rob{timestamp}",
+        email=f"rob{timestamp}@gmail.com",
+        admin=admin,
+        password=pwd,
+        password2=pwd,
+    )
+    
+    with DevSession() as s:
+        u = user.create(s, reg_details)
+        return u, pwd  
+    
