@@ -21,7 +21,7 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-conn_string = URL.create(
+conn_string = URL.create(  # type: ignore
     drivername="postgresql+psycopg2",
     username=settings.postgres_user,
     password=settings.postgres_password,
@@ -30,7 +30,7 @@ conn_string = URL.create(
     database=settings.postgres_database
 )
 
-dev_conn_string = URL.create(
+dev_conn_string = URL.create(  # type: ignore
     drivername="postgresql+psycopg2",
     username=settings.postgres_user,
     password=settings.postgres_password,

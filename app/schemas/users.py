@@ -19,7 +19,7 @@ PASS_FMT        = "6-20 chars, incl. a lower, an upper, and a special char."
 USERNAME_FMT    = "6-20 chars: alphanumeric and dots."
 PASS_MISMATCH   = "Passwords should match."
 OLD_PASS_NEEDED = "Old password not provided."
-
+BOOL_EXPECTED   = "Boolean value expected."
 
 class PassStr(str):
     
@@ -64,9 +64,19 @@ class UserInfoIn(UserInfoBase):
     admin:     Optional[bool]
     password:  PassStr
     password2: str
-        
+    
+    @validator("admin", pre=True)
+    def common_usr_default(cls, admin) -> bool:
+        if admin is None:
+            return False
+
+        if not isinstance(admin, bool):
+            raise ValueError(BOOL_EXPECTED)
+         
+        return admin
+
     @validator("password2")
-    def pass_match(cls, password2, values):
+    def pass_match(cls, password2, values) -> str:
         password = values.get("password")
         if password and password2 != password:
             raise ValueError(PASS_MISMATCH)
@@ -86,7 +96,7 @@ class UserInfoUpd(BaseSchema):
         old_pass = values.get("oldpass")
         
         if password and not old_pass:
-             raise ValueError(OLD_PASS_NEEDED)
+            raise ValueError(OLD_PASS_NEEDED)
         
         if password and password2 != password:
             raise ValueError(PASS_MISMATCH)

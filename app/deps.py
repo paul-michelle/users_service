@@ -1,13 +1,13 @@
 from typing import Generator, List, Optional
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, Path, Security
+from fastapi import Depends, HTTPException, Path
 from fastapi.security import OAuth2PasswordBearer, SecurityScopes
 from jose import JWTError, jwt  # type: ignore
 from pydantic import UUID4
 from pydantic import BaseModel as BaseSchema
 from pydantic import ValidationError, validator
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session as OrmSession
 
 from app.config import settings
 from app.crud.users import user
@@ -31,19 +31,20 @@ class TokenData(BaseSchema):
     scopes : List[Optional[str]] = []
     
     @validator("id", pre=True)
-    def is_uuid_string(cls, id, values):
-        return UUID(id)
+    def is_uuid_string(cls, _id):
+        return UUID(_id)
 
 
-def get_db() -> Generator[Session, None, None]:
+def get_db() -> Generator[OrmSession, None, None]:
     try:
         s = Session()
         yield s
     finally:
         s.close()
- 
-    
-async def usr_or_401(scopes: SecurityScopes, tkn: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+
+
+async def usr_or_401(scopes: SecurityScopes, tkn: str = Depends(oauth2_scheme), 
+                     db: OrmSession = Depends(get_db)) -> User:
     exc_headers = {"WWW-Authenticate": "Bearer"}
     if scopes.scopes:
         exc_headers = {"WWW-Authenticate": f"Bearer scope='{scopes.scope_str}'"}

@@ -1,11 +1,12 @@
+from collections.abc import Sequence
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
 from pydantic import UUID4
 from sqlalchemy.orm import Session
 
 from app.models.users import User
-from app.schemas.users import UserInfoIn
+from app.schemas.users import UserInfoIn, UserInfoUpd
 
 
 class UserCRUD:
@@ -15,20 +16,22 @@ class UserCRUD:
             return db.query(User).filter(User.id == _id).first()
         return db.query(User).filter(User.username == username).first()
         
-    def get_many(self, db: Session, skip: int, limit: int) -> List[Optional[User]]:
+    def get_many(self, db: Session, skip: int, limit: int) -> Sequence[Optional[User]]:
         return db.query(User).offset(skip).limit(limit).all()
     
     def create(self, db: Session, data: UserInfoIn) -> User:
-        u = User(username=data.username, email=data.email, admin=data.admin)
+        u = User(username=data.username, email=data.email, admin=data.admin)  # type: ignore
         u.set_password(data.password)
-        db.add(u); db.commit(); db.refresh(u)
+        db.add(u)
+        db.commit()
+        db.refresh(u)
         return u
 
     def delete(self, db: Session, usr: User) -> None:
         db.delete(usr)
         db.commit()
     
-    def update(self, db: Session, usr: User, upd_data: UserInfoIn) -> None:
+    def update(self, db: Session, usr: User, upd_data: UserInfoUpd) -> None:
         if upd_data.email:
             usr.email = upd_data.email
         if upd_data.username:
@@ -36,12 +39,14 @@ class UserCRUD:
         if upd_data.password:
             usr.set_password(upd_data.password)
         usr.updated_at = datetime.utcnow()
-        db.add(usr); db.commit()
+        db.add(usr)
+        db.commit()
     
     def deactivate(self, db: Session, usr: User) -> None:
         usr.active = False
         usr.updated_at = datetime.utcnow()
-        db.add(usr); db.commit()
+        db.add(usr)
+        db.commit()
     
     def name_uniq(self, db: Session, username: str, _id: Optional[UUID4] = None) -> bool:
         if _id:

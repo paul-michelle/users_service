@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Callable, Coroutine, Dict, Generator, Tuple
+from typing import Any, Callable, Dict, Generator, Tuple
 
 import pytest
 from fastapi import Response
@@ -17,7 +17,7 @@ from app.models.users import User
 from app.schemas.users import UserInfoIn
 
 
-def prepare_dev_db(conn: str) -> Session:
+def prepare_dev_db(conn: str) -> sessionmaker:
     if not database_exists(conn):
         create_database(conn)
         
@@ -66,7 +66,7 @@ def clean_up() -> Generator[None, None, None]:
 
     
 @pytest.fixture()
-def fake_user() -> Generator[Callable[[bool], Coroutine[Any, Any, Tuple[User, str]]], None, None]:
+def fake_user() -> Generator[Callable[[bool], Tuple[User, str]], None, None]:
     yield create_fake_user
 
 
@@ -75,8 +75,12 @@ def client():
     return AsyncClient(app=app, base_url="http://test")
 
 
+def login_data(name: str, _pass: str, scope: str = "users:rw") -> Dict[str, str]:
+    return {"username":name, "password": _pass, "scope": scope}
+    
+    
 def jwt_auth_headers(resp: Response) -> Dict[str, str]:
-    return {'Authorization': f'Bearer {resp.json()["access_token"]}'}
+    return {'Authorization': f'Bearer {resp.json()["access_token"]}'}  # type: ignore
 
 
 def admin_key_auth_headers(admin_key: str) -> Dict[str, str]:
@@ -84,7 +88,7 @@ def admin_key_auth_headers(admin_key: str) -> Dict[str, str]:
 
 
 def err(resp: Response) -> Any:
-    return resp.json()["detail"]
+    return resp.json()["detail"]  # type: ignore
 
 
 def create_fake_user(admin: bool = False) -> Tuple[User ,str]:

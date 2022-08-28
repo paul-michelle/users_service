@@ -2,10 +2,10 @@ from uuid import UUID
 
 from app.config import settings
 from app.crud.users import user
-from app.deps import INV_ADMIN_TKN, INVALID_TOKEN, NO_PERMISSIONS
+from app.deps import INV_ADMIN_TKN, INVALID_TOKEN, LACKING_PERMS, NO_PERMISSIONS
 from app.routers.auth import USER_INACTIVE
 from app.routers.users import CONFLICT_EMAIL, CONFLICT_NAME
-from tests.conftest import admin_key_auth_headers, err, jwt_auth_headers
+from tests.conftest import admin_key_auth_headers, err, jwt_auth_headers, login_data
 
 USERS_URL                 = "/users/"
 LOGIN_URL                 = "/token"
@@ -114,7 +114,18 @@ async def test_admin_usr_201_if_valid_key(client, reg_data, db):
     assert u.admin
 
 
-### JWT AUTH BOUND ENDPOINTS ###
+async def test_422_if_admin_value_wrong(client, reg_data):
+    async with client:
+        reg_data.update({"admin": "yes"})
+        r = await client.post(USERS_URL, json=reg_data, headers=admin_key_auth_headers(settings.admin_key))
+        assert r.status_code == 422
+        
+        reg_data.update({"admin": 1})
+        r = await client.post(USERS_URL, json=reg_data, headers=admin_key_auth_headers(settings.admin_key))
+        assert r.status_code == 422
+
+
+### JWT ISSUES ###
 async def test_jwt_required_for_usr_opers_but_create(client, reg_data):
         
     async with client:
@@ -141,7 +152,7 @@ async def test_invalid_tkn_jwt_errors_back(client, fake_user):
     usr, _pass = fake_user()
     
     async with client:
-        login = await client.post(LOGIN_URL, data={"username":usr.username, "password": _pass})
+        login = await client.post(LOGIN_URL, data=login_data(usr.username, _pass))
         jwt_tkn_string = login.json()["access_token"]
         
         r = await client.get(f"{USERS_URL}{usr.id}", headers={"Authorization": f"Bearer {jwt_tkn_string[::-1]}"})
@@ -153,9 +164,7 @@ async def test_user_no_longer_exists_errors_back(client, fake_user, db):
     usr, _pass = fake_user()
     
     async with client:
-        login = await client.post(
-            LOGIN_URL, data={"username":usr.username, "password": _pass, "scope": "users:rw users:r"}
-        )
+        login = await client.post(LOGIN_URL, data=login_data(usr.username, _pass))
     
         user.delete(db, usr)
         
@@ -168,25 +177,31 @@ async def test_user_not_active_errors_back(client, fake_user, db):
     usr, _pass = fake_user()
     
     async with client:
-        login = await client.post(
-            LOGIN_URL, data={"username":usr.username, "password": _pass, "scope": "users:rw users:r"}
-        )
+        login = await client.post(LOGIN_URL, data=login_data(usr.username, _pass))
         
         user.deactivate(db, usr)
         
         r = await client.get(f"{USERS_URL}{usr.id}", headers=jwt_auth_headers(login))
         assert r.status_code == 400
         assert err(r) == USER_INACTIVE
+
+
+async def test_scope_not_specified_when_login(client, fake_user):
+    usr, _pass = fake_user()
     
+    async with client:
+        login = await client.post(LOGIN_URL, data=login_data(usr.username, _pass, scope=""))        
+        r = await client.get(f"{USERS_URL}{usr.id}", headers=jwt_auth_headers(login))
+        assert r.status_code == 401
+        assert err(r) == LACKING_PERMS
     
 ### GET ONE USER ###
 async def test_authed_usr_can_get_only_own_details(client, fake_user):
-    usr1, usr1pass = fake_user(); usr2, usr2pass = fake_user()
+    usr1, usr1pass = fake_user()
+    usr2, usr2pass = fake_user()
 
     async with client:
-        login_usr1 = await client.post(
-            LOGIN_URL, data={"username":usr1.username, "password": usr1pass, "scope": "users:rw"}
-        )
+        login_usr1 = await client.post(LOGIN_URL, data=login_data(usr1.username, usr1pass))
         usr1headers = jwt_auth_headers(login_usr1)
         
         resp_to_own_details_bid =  await client.get(f"{USERS_URL}{usr1.id}", headers=usr1headers)
@@ -195,9 +210,7 @@ async def test_authed_usr_can_get_only_own_details(client, fake_user):
         resp_to_others_details_bid = await client.get(f"{USERS_URL}{usr2.id}", headers=usr1headers)
         assert resp_to_others_details_bid.status_code == 403
 
-        login_usr2 = await client.post(
-            LOGIN_URL, data={"username":usr2.username, "password": usr2pass, "scope": "users:rw"}
-        )
+        login_usr2 = await client.post(LOGIN_URL, data=login_data(usr2.username, usr2pass))
         usr2headers = jwt_auth_headers(login_usr2)
         
         resp_to_own_details_bid =  await client.get(f"{USERS_URL}{usr2.id}", headers=usr2headers)
@@ -207,55 +220,64 @@ async def test_authed_usr_can_get_only_own_details(client, fake_user):
         assert resp_to_others_details_bid.status_code == 403
     
 
-# async def test_admin_can_get_everyones_details(client, fake_user):
-#     admin_usr, admin_pass   = await fake_user(admin=True)
-#     common_usr1, _          = await fake_user()
+async def test_admin_can_get_everyones_details(client, fake_user):
+    admin_usr, admin_pass = fake_user(admin=True)
+    common_usr1, _        = fake_user()
     
-#     async with client:
-#         login = await client.post(LOGIN_URL, data={"username":admin_usr.username, "password": admin_pass})
-#         headers = jwt_auth_headers(login)
+    async with client:
+        login = await client.post(LOGIN_URL, data=login_data(admin_usr.username, admin_pass))
+        headers = jwt_auth_headers(login)
         
-#         resp_to_own_details_bid = await client.get(f"{USERS_URL}{admin_usr.id}", headers=headers)
-#         assert resp_to_own_details_bid.status_code == 200
+        resp_to_own_details_bid = await client.get(f"{USERS_URL}{admin_usr.id}", headers=headers)
+        assert resp_to_own_details_bid.status_code == 200
 
-#         resp_to_others_details_bid = await client.get(f"{USERS_URL}{common_usr1.id}", headers=headers)
-#         assert resp_to_others_details_bid.status_code == 200
+        resp_to_others_details_bid = await client.get(f"{USERS_URL}{common_usr1.id}", headers=headers)
+        assert resp_to_others_details_bid.status_code == 200
         
 
-# async def test_user_not_found(client, fake_user):
-#     admin_usr, admin_pass = await fake_user(admin=True)
-#     common_usr1, _        = await fake_user()
+async def test_user_404(client, fake_user, db):
+    admin_usr, admin_pass = fake_user(admin=True)
+    common_usr, _         = fake_user()
     
-#     async with client:
-#         login = await client.post(LOGIN_URL, data={"username":admin_usr.username, "password": admin_pass})
-#         headers = jwt_auth_headers(login)
+    async with client:
+        login = await client.post(LOGIN_URL, data=login_data(admin_usr.username, admin_pass))
+        headers = jwt_auth_headers(login)
         
-#         await db.remove_user(common_usr1.id)
+        user.delete(db, common_usr)
         
-#         r = await client.get(f"{USERS_URL}{common_usr1.id}", headers=headers)
-#         assert r.status_code == 404
+        r = await client.get(f"{USERS_URL}{common_usr.id}", headers=headers)
+        assert r.status_code == 404
 
 
-# ### LIST ALL USERS ###
-# async def test_only_admin_can_list_all_users(client, fake_user):
-#     admin_usr, admin_pass = await fake_user(admin=True)
-#     usr, usr_pass         = await fake_user()
+### LIST ALL USERS ###
+async def test_only_admin_can_list_all_users(client, fake_user):
+    admin_usr, admin_pass = fake_user(admin=True)
+    usr, usr_pass = fake_user()
 
-#     async with client:
-#         asmin_form_data = {"username":admin_usr.username, "password": admin_pass}
-#         admin_login = await client.post(LOGIN_URL, data=asmin_form_data)
-#         headers = jwt_auth_headers(admin_login)
-#         resp_to_admin = await client.get(USERS_URL, headers=headers)
-#         assert resp_to_admin.status_code == 200
-#         assert isinstance(resp_to_admin.json(), list)
-#         assert len(resp_to_admin.json()) == 2
+    async with client:
+        admin_login = await client.post(LOGIN_URL, data=login_data(admin_usr.username, admin_pass))
+        resp_to_admin = await client.get(USERS_URL, headers=jwt_auth_headers(admin_login))
+        assert resp_to_admin.status_code == 200
+        assert isinstance(resp_to_admin.json(), list)
+        assert len(resp_to_admin.json()) == 2
 
-#         common_usr_form_data = {"username":usr.username, "password": usr_pass}
-#         common_usr_login = await client.post(LOGIN_URL, data=common_usr_form_data)
-#         headers = jwt_auth_headers(common_usr_login)
-#         resp_to_common_usr = await client.get(USERS_URL, headers=headers)
-#         assert resp_to_common_usr.status_code == 403
-#         assert resp_to_common_usr.json()["detail"] == NO_PERMISSIONS
+        common_usr_login = await client.post(LOGIN_URL, data=login_data(usr.username, usr_pass))
+        resp_to_common_usr = await client.get(USERS_URL, headers=jwt_auth_headers(common_usr_login))
+        assert resp_to_common_usr.status_code == 403
+        assert err(resp_to_common_usr) == NO_PERMISSIONS
+
+
+async def test_empty_list_when_no_users_after_offset(client, fake_user):
+    admin_usr, admin_pass = fake_user(admin=True)
+    _, _                  = fake_user()
+    _, _                  = fake_user()
+
+    async with client:
+        login = await client.post(LOGIN_URL, data=login_data(admin_usr.username, admin_pass))
+        resp = await client.get(f"{USERS_URL}?skip=3", headers=jwt_auth_headers(login))
+        assert resp.status_code == 200
+        assert isinstance(resp.json(), list)
+        assert len(resp.json()) == 0  # pylint: disable=compare-to-zero
 
 
 # ### UPDATE USER ###
