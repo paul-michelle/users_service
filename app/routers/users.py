@@ -1,95 +1,73 @@
 from typing import List, Optional
 
+from databases.backends.postgres import Record as DBRecord
 from fastapi import APIRouter, Depends, Header, HTTPException, Security
 from pydantic import UUID4
-from sqlalchemy.orm import Session
 
 from app import deps
 from app.crud.users import user
 from app.routers.auth import USER_INACTIVE
-from app.schemas.users import UserInfoIn, UserInfoOut, UserInfoUpd
+from app.schemas.users import UserInfoUpd, UsrIn, UsrOut
 
 CONFLICT       = "User with provided username or email already exists."
-CONFLICT_NAME  = "Username already exists."
-CONFLICT_EMAIL = "Email already exists."
 USER_NOT_FOUND = "User not found."
 
+usr_inactive  = {400: {"description": USER_INACTIVE}}
+unauthed      = {401: {"description": deps.INVALID_TOKEN}}
+adm_unauthed  = {401: {"description": deps.INV_ADMIN_TKN}}
+usr_not_found = {404: {"description": USER_NOT_FOUND}}
+conflict      = {409: {"description": CONFLICT}}
+
 router = APIRouter()
-
-non_jwt_opers = APIRouter(
-    prefix="/users",
-    tags=["users"]
-)
-
-jwt_bound_opers = APIRouter(
-    prefix="/users", 
-    tags=["users"],
-    responses={
-        400: {"description": USER_INACTIVE},
-        401: {"description": deps.INVALID_TOKEN},
-        403: {"description": deps.NO_PERMISSIONS},   
-    }
-)
-
-detailed_opers = APIRouter(
-    dependencies=[Security(deps.has_perms_or_403, scopes=["users:rw"])],
-    responses={
-        404: {"description": USER_NOT_FOUND}
-    }
-)
+jwt_free = APIRouter(prefix="/users", tags=["users"])
+jwt_bound = APIRouter(prefix="/users", tags=["users"], responses={**usr_inactive, **unauthed, **usr_not_found})
 
 
-@non_jwt_opers.post(path="/", status_code=201, response_model=UserInfoOut, 
-                    responses={409: {"description": CONFLICT}, 401: {"description": deps.INV_ADMIN_TKN}})
-async def add_user(u: UserInfoIn, authorization: str = Header(default=""), db: Session = Depends(deps.get_db)):
-    if u.admin:
-        await deps.check_admin_tkn(authorization)
-
-    if not user.name_uniq(db, u.username):
-        raise HTTPException(409, CONFLICT_NAME)
+@jwt_free.post("/", status_code=201, response_model=UsrOut, responses={**conflict, **adm_unauthed})
+async def add_user(reg_data: UsrIn, auth: str = Header(default="")):
+    if reg_data.admin:
+        await deps.check_admin_tkn(auth)
+        
+    auto_assigned_attrs = await user.create(reg_data)
+    if not auto_assigned_attrs:
+        raise HTTPException(409, CONFLICT)
     
-    if not user.email_uniq(db, u.email):
-        raise HTTPException(409, CONFLICT_EMAIL)
-    
-    return user.create(db, u)
+    return {**UsrIn.as_dict(), **auto_assigned_attrs} 
  
    
-@jwt_bound_opers.get(path="/", response_model=List[Optional[UserInfoOut]], dependencies=[Depends(deps.is_admin_or_403)])
-async def list_users(skip: int = 0, limit: int =100, db: Session = Depends(deps.get_db)):
-    return user.get_many(db, skip, limit)
+@jwt_bound.get("/", response_model=List[Optional[UsrOut]], dependencies=[Depends(deps.is_admin_or_403)])
+async def list_users(skip: int = 0, limit: int =100):
+    return user.get_many(skip, limit)
 
 
-@detailed_opers.get(path="/{id}", response_model=UserInfoOut)
-async def get_user(id: UUID4, db: Session = Depends(deps.get_db)):
-    u = user.get(db, id)
+@jwt_bound.get("/{id}", response_model=UsrOut, dependencies=[Security(deps.has_perms_or_403, scopes=["users:rw"])])
+async def get_user(id: UUID4):
+    u = await user.get(id)
     if not u:
         raise HTTPException(404, USER_NOT_FOUND)
     return u
     
 
-@detailed_opers.put(path="/{id}", status_code=204, responses={409: {"description": CONFLICT}})
-async def update_user(id: UUID4, upd_info: UserInfoUpd, db: Session = Depends(deps.get_db)):
-    user_to_upd = user.get(db, id)
-    if not user_to_upd:
+@jwt_bound.put("/{id}", status_code=204, responses={**conflict})
+async def update_user(id: UUID4, upd_info: UserInfoUpd, u: DBRecord = Security(deps.usr_or_403, scopes=["users:rw"])):
+    user_obj_to_upd = await user.get(id)
+    if not user_obj_to_upd:
         raise HTTPException(404, USER_NOT_FOUND)
     
-    if upd_info.username and not user.name_uniq(db, upd_info.username, id):
-        raise HTTPException(409, CONFLICT_NAME)
-    
-    if upd_info.email and not user.email_uniq(db, upd_info.email, id):
-        raise HTTPException(409, CONFLICT_EMAIL)
-    
-    user.update(db, user_to_upd, upd_info)
+    if upd_info.password:
+        # TODO: check old password and that one of user_obj_to_upd
+        pass
+
+    ok = await user.update(id, upd_info)
+    if not ok:
+        raise HTTPException(409, CONFLICT)
 
 
-@detailed_opers.delete(path="/{id}", status_code=204)
-async def delete_user(id: UUID4, db: Session = Depends(deps.get_db)):
-    usr = user.get(db, id)
-    if not usr:
+@jwt_bound.delete("/{id}", status_code=204, dependencies=[Security(deps.has_perms_or_403, scopes=["users:rw"])])
+async def delete_user(id: UUID4):
+    if not await user.delete(id):
         raise HTTPException(404, USER_NOT_FOUND)
-    user.delete(db, usr)
 
 
-jwt_bound_opers.include_router(detailed_opers)
-router.include_router(jwt_bound_opers)
-router.include_router(non_jwt_opers)
+router.include_router(jwt_free)
+router.include_router(jwt_bound)

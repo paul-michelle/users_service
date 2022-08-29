@@ -21,20 +21,12 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-conn_string = URL.create(  # type: ignore
-    drivername="postgresql+psycopg2",
+def get_conn_url(sync: bool = False) -> URL:
+    return URL.create(  # type: ignore
+    drivername=f"postgresql+{'psycopg2' if sync else 'asyncpg'}",
     username=settings.postgres_user,
     password=settings.postgres_password,
     host=settings.postgres_host,
     port=settings.postgres_port,
     database=settings.postgres_database
-)
-
-dev_conn_string = URL.create(  # type: ignore
-    drivername="postgresql+psycopg2",
-    username=settings.postgres_user,
-    password=settings.postgres_password,
-    host=settings.postgres_host,
-    port=settings.postgres_port,
-    database=f"{settings.postgres_database}_test"
 )

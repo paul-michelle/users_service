@@ -6,16 +6,18 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt  # type: ignore
-from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.crud.users import user
-from app.deps import get_db
+from app.db.utils import pass_manager
 
-INVALID_CREDS      = "Invalid username or password."
 USER_INACTIVE      = "User inactive."
+INVALID_CREDS      = "Invalid username or password."
 TOKEN_EXP_MINS     = 30
 COMMON_USER_SCOPES = ("users:rw", "users:r")
+
+usr_inactive  = {400: {"description": USER_INACTIVE}}
+inv_creds     = {401: {"description": INVALID_CREDS}}
 
 
 router = APIRouter(tags=["auth"])
@@ -33,12 +35,11 @@ def gen_access_token_str(payload: Dict[str, Any], expires_in: int = TOKEN_EXP_MI
     return jwt.encode(claims, settings.secret_key, settings.algo)
 
 
-@router.post("/token", status_code=201, response_model=Token, 
-             responses={401: {"description": INVALID_CREDS}, 400: {"description": USER_INACTIVE}})
-async def log_in(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    u_found = user.get(db, username=form_data.username)   
+@router.post("/token", status_code=201, response_model=Token, responses={**usr_inactive, **inv_creds})
+async def log_in(form_data: OAuth2PasswordRequestForm = Depends()):
+    u_found = await user.get(username=form_data.username)   
     
-    if not u_found or not u_found.check_password(form_data.password):
+    if not u_found or not pass_manager.verify(form_data.password, u_found.password):
         raise HTTPException(401, INVALID_CREDS, {"WWW-Authenticate": "Bearer"})
     
     if not u_found.active:

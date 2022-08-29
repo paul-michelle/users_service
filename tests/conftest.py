@@ -14,7 +14,7 @@ from app.db.meta import BaseModel
 from app.deps import get_db
 from app.main import app
 from app.models.users import User
-from app.schemas.users import UserInfoIn
+from app.schemas.users import UsrIn
 
 
 def prepare_dev_db(conn: str) -> sessionmaker:
@@ -94,7 +94,7 @@ def err(resp: Response) -> Any:
 def create_fake_user(admin: bool = False) -> Tuple[User ,str]:
     timestamp = datetime.utcnow().timestamp()
     pwd = "!ValidPass2022"
-    reg_details = UserInfoIn(
+    reg_details = UsrIn(
         username= f"Rob{timestamp}",
         email=f"rob{timestamp}@gmail.com",
         admin=admin,

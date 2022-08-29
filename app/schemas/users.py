@@ -60,7 +60,7 @@ class UserInfoBase(BaseSchema):
     email:    EmailStr
     
 
-class UserInfoIn(UserInfoBase):
+class UsrIn(UserInfoBase):
     admin:     Optional[bool]
     password:  PassStr
     password2: str
@@ -104,7 +104,7 @@ class UserInfoUpd(BaseSchema):
         return password2
 
 
-class UserInfoOut(UserInfoBase):
+class UsrOut(UserInfoBase):
     id :        UUID4
     created_at: datetime
     updated_at: datetime
@@ -113,7 +113,7 @@ class UserInfoOut(UserInfoBase):
         orm_mode = True
 
 
-class UserDB(UserInfoOut): 
+class UserDB(UsrOut): 
     password: str
     active:   bool
     admin:    bool

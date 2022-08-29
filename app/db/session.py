@@ -1,7 +1,5 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from databases import Database
 
-from app.config import conn_string
+from app.config import get_conn_url
 
-engine = create_engine(conn_string, pool_pre_ping=True)
-Session = sessionmaker(autoflush=False, bind=engine)
+db = Database(str(get_conn_url()))

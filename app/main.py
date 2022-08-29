@@ -7,6 +7,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.exceptions import HTTPException
 
+from app.db.session import db
 from app.routers import auth, files, users
 
 logger = logging.getLogger(name=__name__)
@@ -29,3 +30,13 @@ app.include_router(files.router)
 async def log_http_exception(request, exc):
     logger.error('Exception ocurred: %s', repr(exc))
     return await http_exception_handler(request, exc)
+
+
+@app.on_event("startup")
+async def startup():
+    await db.connect()
+    
+
+@app.on_event("shutdown")
+async def shutdown():
+    await db.disconnect()

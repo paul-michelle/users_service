@@ -1,66 +1,93 @@
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Optional
+from typing import Dict, Optional, Union
+from uuid import uuid4
 
+from asyncpg import UniqueViolationError
+from databases.backends.postgres import Record
 from pydantic import UUID4
 from sqlalchemy.orm import Session
 
-from app.models.users import User
-from app.schemas.users import UserInfoIn, UserInfoUpd
+from app.db.session import db
+from app.db.utils import pass_manager
+from app.models.users import users
+from app.schemas.users import UserInfoUpd, UsrIn
+
+UserAutoAssigned = Dict[str, Union[UUID4, datetime]]
+UserAllAttrs     = Dict[str, Union[UUID4, datetime, str, bool]]
 
 
 class UserCRUD:
     
-    def get(self, db: Session, _id: Optional[UUID4] = None, username: str = "") -> Optional[User]:
-        if _id: 
-            return db.query(User).filter(User.id == _id).first()
-        return db.query(User).filter(User.username == username).first()
+    async def create(self, reg_data: UsrIn) -> Optional[UserAutoAssigned]:
+        _id, = uuid4()
+        _now = datetime.utcnow()
         
-    def get_many(self, db: Session, skip: int, limit: int) -> Sequence[Optional[User]]:
-        return db.query(User).offset(skip).limit(limit).all()
-    
-    def create(self, db: Session, data: UserInfoIn) -> User:
-        u = User(username=data.username, email=data.email, admin=data.admin)  # type: ignore
-        u.set_password(data.password)
-        db.add(u)
-        db.commit()
-        db.refresh(u)
-        return u
+        q = users.insert().values(
+            id=_id,
+            created_at=_now,
+            updated_at=_now,
+            username=reg_data.username, 
+            email=reg_data.email,  
+            password=pass_manager.hash(reg_data.password),
+            admin=reg_data.admin,
+            active=True
+        )
+        
+        try:    
+            await db.execute(q)
+        except UniqueViolationError:
+            return None
+        
+        return {"id": _id, "created_at": _now, "updated_at": _now}
 
-    def delete(self, db: Session, usr: User) -> None:
-        db.delete(usr)
-        db.commit()
+    async def get(self, _id: Optional[UUID4] = None, username: str = "") -> Optional[Record]:
+        q = users.select().where(user.c.id == _id)
+        if username: 
+            q = users.select().where(user.c.username == username) 
+        return await db.fetch_one(q)
+        # query_res = await db.fetch_one(q)
+        
+        # if not query_res:
+        #     return None
+        
+        # return dict(query_res._mapping)
+        
+    async def get_many(self, skip: int, limit: int) -> Sequence[Optional[Record]]:
+        q = users.select().offset(skip).limit(limit)
+        return await db.fetch_all(q)
     
-    def update(self, db: Session, usr: User, upd_data: UserInfoUpd) -> None:
+    async def delete(self, id: UUID4) -> Optional[bool]:
+        q = users.delete().where(users.c.id == id).returning(True)
+        return await db.execute(q)
+
+    async def update(self, _id: UUID4, upd_data: UserInfoUpd) -> bool:
+        success = True
+        
+        q, vals = users.update().where(users.c.id == _id), {}
+       
         if upd_data.email:
-            usr.email = upd_data.email
+            vals["email"] = upd_data.email
         if upd_data.username:
-            usr.username = upd_data.username
+            vals["username"] = upd_data.username 
         if upd_data.password:
-            usr.set_password(upd_data.password)
-        usr.updated_at = datetime.utcnow()
-        db.add(usr)
-        db.commit()
-    
-    def deactivate(self, db: Session, usr: User) -> None:
-        usr.active = False
-        usr.updated_at = datetime.utcnow()
-        db.add(usr)
-        db.commit()
-    
-    def name_uniq(self, db: Session, username: str, _id: Optional[UUID4] = None) -> bool:
-        if _id:
-            return not db.query(User).filter(User.username == username, User.id != _id).first()
-        return not db.query(User).filter(User.username == username).first()
+            vals["password"] = pass_manager.hash(upd_data.password)
+        vals["updated_at"] = datetime.utcnow()
+        
+        try:
+            await db.execute(q, vals)
+        except UniqueViolationError:
+            success = False
 
-    def email_uniq(self, db: Session, email: str, _id: Optional[UUID4] = None) -> bool:
-        if _id:
-            return not db.query(User).filter(User.email == email, User.id != _id).first()
-        return not db.query(User).filter(User.email == email).first()
+        return success
     
-    def purge(self, db: Session) -> None:
-        db.query(User).delete()
-        db.commit()
+    async def deactivate(self, _id: UUID4) -> None:
+        q = users.update().where(users.c.id == _id)
+        vals = {"active": False, "updated_at": datetime.utcnow()}
+        await db.execute(q, vals)
+        
+    async def purge(self) -> None:
+        await db.execute(users.delete())
     
     
 user = UserCRUD()

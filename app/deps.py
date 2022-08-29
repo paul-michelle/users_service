@@ -1,18 +1,16 @@
-from typing import Generator, List, Optional
+from typing import List, Optional
 from uuid import UUID
 
+from databases.backends.postgres import Record as DBRecord
 from fastapi import Depends, HTTPException, Path
 from fastapi.security import OAuth2PasswordBearer, SecurityScopes
 from jose import JWTError, jwt  # type: ignore
 from pydantic import UUID4
 from pydantic import BaseModel as BaseSchema
 from pydantic import ValidationError, validator
-from sqlalchemy.orm import Session as OrmSession
 
 from app.config import settings
 from app.crud.users import user
-from app.db.session import Session
-from app.models.users import User
 
 NO_PERMISSIONS = "Not authorized to perform this operation."
 INVALID_TOKEN  = "Could not validate credentials."
@@ -35,16 +33,7 @@ class TokenData(BaseSchema):
         return UUID(_id)
 
 
-def get_db() -> Generator[OrmSession, None, None]:
-    try:
-        s = Session()
-        yield s
-    finally:
-        s.close()
-
-
-async def usr_or_401(scopes: SecurityScopes, tkn: str = Depends(oauth2_scheme), 
-                     db: OrmSession = Depends(get_db)) -> User:
+async def usr_or_401(scopes: SecurityScopes, tkn: str = Depends(oauth2_scheme)) -> DBRecord:
     exc_headers = {"WWW-Authenticate": "Bearer"}
     if scopes.scopes:
         exc_headers = {"WWW-Authenticate": f"Bearer scope='{scopes.scope_str}'"}
@@ -55,7 +44,7 @@ async def usr_or_401(scopes: SecurityScopes, tkn: str = Depends(oauth2_scheme),
     except (JWTError, ValidationError) as e:
         raise HTTPException(401, INVALID_TOKEN, exc_headers) from e
 
-    u = user.get(db, tkn_data.id)
+    u = user.get(tkn_data.id)
     if not u:
         raise HTTPException(401, INVALID_TOKEN, exc_headers)
 
@@ -66,19 +55,27 @@ async def usr_or_401(scopes: SecurityScopes, tkn: str = Depends(oauth2_scheme),
     return u
     
     
-async def active_usr_or_400(u: User = Depends(usr_or_401)) -> User:
+async def active_usr_or_400(u: DBRecord = Depends(usr_or_401)) -> DBRecord:
     if not u.active:
         raise HTTPException(400, USER_INACTIVE)
     return u
 
+#  TODO: check if makes sense to return user all the time, but make use only when needed!!!
 
-async def has_perms_or_403(id: UUID4 = Path(), u: User = Depends(active_usr_or_400)) -> None:
-    is_object_owner_or_admin = u.id == id or u.admin
-    if not is_object_owner_or_admin:
+async def has_perms_or_403(id: UUID4 = Path(), u: DBRecord = Depends(active_usr_or_400)) -> None:
+    is_obj_owner_or_admin = u.id == id or u.admin
+    if not is_obj_owner_or_admin:
         raise HTTPException(403, NO_PERMISSIONS)
 
 
-async def is_admin_or_403(u: User = Depends(active_usr_or_400)) -> None:
+async def usr_or_403(id: UUID4 = Path(), u: DBRecord = Depends(active_usr_or_400)) -> DBRecord:
+    is_obj_owner_or_admin = u.id == id or u.admin
+    if not is_obj_owner_or_admin:
+        raise HTTPException(403, NO_PERMISSIONS)  
+    return u
+
+
+async def is_admin_or_403(u: DBRecord = Depends(active_usr_or_400)) -> None:
     if not u.admin:
         raise HTTPException(403, NO_PERMISSIONS)
     
