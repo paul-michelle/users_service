@@ -6,7 +6,6 @@ from uuid import uuid4
 from asyncpg import UniqueViolationError
 from databases.backends.postgres import Record
 from pydantic import UUID4
-from sqlalchemy.orm import Session
 
 from app.db.session import db
 from app.db.utils import pass_manager
@@ -20,7 +19,7 @@ UserAllAttrs     = Dict[str, Union[UUID4, datetime, str, bool]]
 class UserCRUD:
     
     async def create(self, reg_data: UsrIn) -> Optional[UserAutoAssigned]:
-        _id, = uuid4()
+        _id  = uuid4()
         _now = datetime.utcnow()
         
         q = users.insert().values(
@@ -30,8 +29,8 @@ class UserCRUD:
             username=reg_data.username, 
             email=reg_data.email,  
             password=pass_manager.hash(reg_data.password),
+            active=True,
             admin=reg_data.admin,
-            active=True
         )
         
         try:    
@@ -42,16 +41,10 @@ class UserCRUD:
         return {"id": _id, "created_at": _now, "updated_at": _now}
 
     async def get(self, _id: Optional[UUID4] = None, username: str = "") -> Optional[Record]:
-        q = users.select().where(user.c.id == _id)
+        q = users.select().where(users.c.id == _id)
         if username: 
-            q = users.select().where(user.c.username == username) 
+            q = users.select().where(users.c.username == username) 
         return await db.fetch_one(q)
-        # query_res = await db.fetch_one(q)
-        
-        # if not query_res:
-        #     return None
-        
-        # return dict(query_res._mapping)
         
     async def get_many(self, skip: int, limit: int) -> Sequence[Optional[Record]]:
         q = users.select().offset(skip).limit(limit)

@@ -61,20 +61,10 @@ class UserInfoBase(BaseSchema):
     
 
 class UsrIn(UserInfoBase):
-    admin:     Optional[bool]
+    admin:     Optional[bool] = False
     password:  PassStr
     password2: str
     
-    @validator("admin", pre=True)
-    def common_usr_default(cls, admin) -> bool:
-        if admin is None:
-            return False
-
-        if not isinstance(admin, bool):
-            raise ValueError(BOOL_EXPECTED)
-         
-        return admin
-
     @validator("password2")
     def pass_match(cls, password2, values) -> str:
         password = values.get("password")
@@ -84,16 +74,16 @@ class UsrIn(UserInfoBase):
 
 
 class UserInfoUpd(BaseSchema):
-    username:  Optional[NameStr]  = None
-    email:     Optional[EmailStr] = None
-    oldpass:   Optional[PassStr]  = None
-    password:  Optional[PassStr]  = None
-    password2: Optional[str]      = None
+    username:    Optional[NameStr]  = None
+    email:       Optional[EmailStr] = None
+    oldpassword: Optional[PassStr]  = None
+    password:    Optional[PassStr]  = None
+    password2:   Optional[str]      = None
         
     @validator("password2")
     def pass_match_if_new(cls, password2, values):
         password = values.get("password")
-        old_pass = values.get("oldpass")
+        old_pass = values.get("oldpassword")
         
         if password and not old_pass:
             raise ValueError(OLD_PASS_NEEDED)

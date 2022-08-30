@@ -44,7 +44,7 @@ async def usr_or_401(scopes: SecurityScopes, tkn: str = Depends(oauth2_scheme)) 
     except (JWTError, ValidationError) as e:
         raise HTTPException(401, INVALID_TOKEN, exc_headers) from e
 
-    u = user.get(tkn_data.id)
+    u = await user.get(tkn_data.id)
     if not u:
         raise HTTPException(401, INVALID_TOKEN, exc_headers)
 
@@ -60,7 +60,6 @@ async def active_usr_or_400(u: DBRecord = Depends(usr_or_401)) -> DBRecord:
         raise HTTPException(400, USER_INACTIVE)
     return u
 
-#  TODO: check if makes sense to return user all the time, but make use only when needed!!!
 
 async def has_perms_or_403(id: UUID4 = Path(), u: DBRecord = Depends(active_usr_or_400)) -> None:
     is_obj_owner_or_admin = u.id == id or u.admin
@@ -80,7 +79,7 @@ async def is_admin_or_403(u: DBRecord = Depends(active_usr_or_400)) -> None:
         raise HTTPException(403, NO_PERMISSIONS)
     
 
-async def check_admin_tkn(auth_header_value: str):   
+async def check_admin_tkn(auth_header_value: str) -> None:   
     apart = auth_header_value.split(" ")
     if len(apart) != 2 or apart[0].capitalize() != 'Token' or apart[1] != settings.admin_key:
         raise HTTPException(401, INV_ADMIN_TKN, {"WWW-Authenticate": "Token"})
